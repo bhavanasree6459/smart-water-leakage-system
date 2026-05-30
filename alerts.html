@@ -26,52 +26,17 @@
     <div class="mobile-content">
         <!-- Alert Tabs -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px; padding: 0; border-bottom: 1px solid #eee;">
-            <button id="tabAll" class="alert-tab active" data-tab="all" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid #0F4C81; color: #0F4C81; font-weight: bold;">All (<span id="countAll">2</span>)</button>
-            <button id="tabActive" class="alert-tab" data-tab="active" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Active (<span id="countActive">2</span>)</button>
-            <button id="tabResolved" class="alert-tab" data-tab="resolved" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Resolved (<span id="countResolved">2</span>)</button>
+            <button id="tabAll" class="alert-tab active" data-tab="all" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid #0F4C81; color: #0F4C81; font-weight: bold;">All</button>
+            <button id="tabActive" class="alert-tab" data-tab="active" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Active</button>
+            <button id="tabResolved" class="alert-tab" data-tab="resolved" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Resolved</button>
         </div>
 
         <!-- Alert Items List -->
-        <div class="alert-list" id="alertsList">
-            <div class="alert-item" data-status="active">
-                <div class="alert-item-info">
-                    <h4>MG Road, Zone 3</h4>
-                    <p>PIPE-34A • 09:41 AM</p>
-                </div>
-                <div class="alert-severity severity-high">
-                    <i class="fas fa-exclamation"></i>
-                </div>
-            </div>
-
-            <div class="alert-item" data-status="active">
-                <div class="alert-item-info">
-                    <h4>Lake View Street, Zone 2</h4>
-                    <p>PIPE-188 • 08:15 AM</p>
-                </div>
-                <div class="alert-severity severity-medium">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-            </div>
-
-            <div class="alert-item" data-status="resolved">
-                <div class="alert-item-info">
-                    <h4>Park Avenue, Zone 1</h4>
-                    <p>PIPE-OPC • 23 May 2025</p>
-                </div>
-                <div class="alert-severity severity-low">
-                    <i class="fas fa-check"></i>
-                </div>
-            </div>
-
-            <div class="alert-item" data-status="resolved">
-                <div class="alert-item-info">
-                    <h4>Old Bridge Area, Zone 4</h4>
-                    <p>PIPE-220 • 23 May 2025</p>
-                </div>
-                <div class="alert-severity severity-low">
-                    <i class="fas fa-check"></i>
-                </div>
-            </div>
+        <div class="alert-list" id="alertsList"></div>
+        <div id="noAlertsMsg" style="text-align: center; padding: 40px 20px; color: #999;">
+            <i class="fas fa-smile-wink" style="font-size: 50px; margin-bottom: 15px;"></i>
+            <p style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">No Active Leakage Alerts</p>
+            <small>All water systems are operating normally</small>
         </div>
     </div>
 
@@ -101,31 +66,172 @@
 </div>
 
 <script>
+// API Configuration
+const API_URL = 'http://localhost:5000/api/sensors';
+
 // Tab functionality
 const tabs = document.querySelectorAll('.alert-tab');
-const alertsList = document.getElementById('alertsList');
-const alertItems = alertsList.querySelectorAll('.alert-item');
+let currentFilter = 'all';
 
-// Count alerts by status
-function updateCounts() {
-    let activeCount = 0;
-    let resolvedCount = 0;
+// Fetch real sensor data from ESP32
+async function fetchAlertData() {
+    try {
+        const response = await fetch(API_URL);
+        if (response.ok) {
+            const data = await response.json();
+            updateAlerts(data);
+            saveAlertData(data);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        loadCachedAlertData();
+    }
+}
+
+// Update alerts based on real ESP32 data
+function updateAlerts(data) {
+    const activeLeaks = data.activeLeaks || 0;
+    const alertsList = document.getElementById('alertsList');
+    const noAlertsMsg = document.getElementById('noAlertsMsg');
     
-    alertItems.forEach(item => {
-        if (item.dataset.status === 'active') {
-            activeCount++;
-        } else if (item.dataset.status === 'resolved') {
-            resolvedCount++;
+    // Load leak history
+    let leakAlerts = JSON.parse(localStorage.getItem('leakAlerts')) || {};
+    
+    if (activeLeaks > 0) {
+        // Create timestamp-based detection ID
+        const detectionKey = `alert_${Math.floor(Date.now() / 60000)}`; // Group by minute
+        
+        // Record this leak detection
+        if (!leakAlerts[detectionKey]) {
+            leakAlerts[detectionKey] = {
+                leaks: activeLeaks,
+                timestamp: new Date().toISOString(),
+                severity: activeLeaks > 2 ? 'high' : (activeLeaks > 1 ? 'medium' : 'low'),
+                resolved: false
+            };
+        }
+        
+        // Update display
+        alertsList.innerHTML = '';
+        noAlertsMsg.style.display = 'none';
+        
+        let alertCount = 0;
+        Object.entries(leakAlerts).forEach(([key, alert]) => {
+            if (!alert.resolved) {
+                alertCount++;
+                const alertDate = new Date(alert.timestamp);
+                const timeStr = alertDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                const dateStr = alertDate.toLocaleDateString('en-GB');
+                
+                const severityClass = `severity-${alert.severity}`;
+                const severityIcon = alert.severity === 'high' ? 'exclamation' : 
+                                   alert.severity === 'medium' ? 'exclamation-triangle' : 'info-circle';
+                
+                const alertHTML = `
+                    <div class="alert-item" data-status="active" data-alert-id="${key}">
+                        <div class="alert-item-info">
+                            <h4>Leakage Alert #${alertCount}</h4>
+                            <p>ESP32 Sensor • ${timeStr} (${dateStr})</p>
+                            <small>Leaks Detected: ${alert.leaks}</small>
+                        </div>
+                        <div class="alert-severity ${severityClass}" onclick="resolveAlert('${key}'); event.stopPropagation();" style="cursor: pointer; position: relative; overflow: visible;">
+                            <i class="fas fa-${severityIcon}"></i>
+                            <span style="font-size: 10px; position: absolute; bottom: -20px; right: -10px; white-space: nowrap; background: #333; color: white; padding: 3px 6px; border-radius: 3px;">Click to Resolve</span>
+                        </div>
+                    </div>
+                `;
+                alertsList.innerHTML += alertHTML;
+            }
+        });
+        
+    } else {
+        // No active leaks detected
+        alertsList.innerHTML = '';
+        noAlertsMsg.style.display = 'block';
+        
+        // Show historical resolved alerts
+        let leakAlerts = JSON.parse(localStorage.getItem('leakAlerts')) || {};
+        let hasResolved = Object.values(leakAlerts).some(alert => alert.resolved);
+        
+        if (hasResolved) {
+            showResolvedAlerts(leakAlerts);
+        }
+    }
+    
+    // Save and update counts
+    localStorage.setItem('leakAlerts', JSON.stringify(leakAlerts));
+    updateAlertCounts(leakAlerts);
+    filterAlerts(currentFilter);
+}
+
+// Show resolved alerts in the list
+function showResolvedAlerts(leakAlerts) {
+    const alertsList = document.getElementById('alertsList');
+    const noAlertsMsg = document.getElementById('noAlertsMsg');
+    
+    let resolvedHTML = '';
+    Object.entries(leakAlerts).forEach(([key, alert]) => {
+        if (alert.resolved) {
+            const alertDate = new Date(alert.timestamp);
+            const dateStr = alertDate.toLocaleDateString('en-GB', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+            
+            resolvedHTML += `
+                <div class="alert-item" data-status="resolved" data-alert-id="${key}" style="opacity: 0.7;">
+                    <div class="alert-item-info">
+                        <h4>Leakage Resolved</h4>
+                        <p>ESP32 Sensor • ${dateStr}</p>
+                    </div>
+                    <div class="alert-severity severity-low">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            `;
         }
     });
     
-    document.getElementById('countAll').textContent = alertItems.length;
-    document.getElementById('countActive').textContent = activeCount;
-    document.getElementById('countResolved').textContent = resolvedCount;
+    if (resolvedHTML) {
+        alertsList.innerHTML = resolvedHTML;
+        noAlertsMsg.style.display = 'none';
+    }
+}
+
+// Resolve an alert (mark as handled)
+function resolveAlert(alertId) {
+    let leakAlerts = JSON.parse(localStorage.getItem('leakAlerts')) || {};
+    if (leakAlerts[alertId]) {
+        leakAlerts[alertId].resolved = true;
+        leakAlerts[alertId].resolvedTime = new Date().toISOString();
+    }
+    localStorage.setItem('leakAlerts', JSON.stringify(leakAlerts));
+    
+    // Refresh display
+    const alertsList = document.getElementById('alertsList');
+    let hasActive = Object.values(leakAlerts).some(alert => !alert.resolved);
+    
+    if (!hasActive) {
+        alertsList.innerHTML = '';
+        document.getElementById('noAlertsMsg').style.display = 'block';
+        showResolvedAlerts(leakAlerts);
+    } else {
+        fetchAlertData();
+    }
+}
+
+// Update alert counts
+function updateAlertCounts(leakAlerts) {
+    // Counts removed from UI - only show alerts that are actual ESP32 detections
+    // No bracket counts needed
 }
 
 // Filter alerts based on selected tab
 function filterAlerts(tabName) {
+    currentFilter = tabName;
+    const alertItems = document.querySelectorAll('.alert-item');
+    
     alertItems.forEach(item => {
         if (tabName === 'all') {
             item.style.display = 'flex';
@@ -140,14 +246,14 @@ function filterAlerts(tabName) {
 // Handle tab clicks
 tabs.forEach(tab => {
     tab.addEventListener('click', function() {
-        // Remove active class from all tabs
+        // Remove active style from all tabs
         tabs.forEach(t => {
             t.style.borderBottomColor = 'transparent';
             t.style.color = '#999';
             t.style.fontWeight = 'normal';
         });
         
-        // Add active class to clicked tab
+        // Add active style to clicked tab
         this.style.borderBottomColor = '#0F4C81';
         this.style.color = '#0F4C81';
         this.style.fontWeight = 'bold';
@@ -158,8 +264,33 @@ tabs.forEach(tab => {
     });
 });
 
-// Initialize counts
-updateCounts();
+// Save alert data to localStorage
+function saveAlertData(data) {
+    localStorage.setItem('lastAlertData', JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString()
+    }));
+}
+
+// Load cached alert data
+function loadCachedAlertData() {
+    const cached = localStorage.getItem('lastAlertData');
+    if (cached) {
+        try {
+            const data = JSON.parse(cached);
+            updateAlerts(data);
+        } catch (error) {
+            console.error('Error loading cached data:', error);
+        }
+    }
+}
+
+// Fetch data on page load
+window.addEventListener('load', function() {
+    fetchAlertData();
+    // Refresh data every 5 seconds
+    setInterval(fetchAlertData, 5000);
+});
 </script>
 
 </body>

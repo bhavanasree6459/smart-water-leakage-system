@@ -119,6 +119,36 @@ Comprehensive dark theme with:
 
 v1.0.0 - Initial Release (May 2026)
 
+## ESP32 Integration
+
+Connect your ESP32 microcontroller to display **real sensor data** on the dashboard!
+
+### How It Works
+1. ESP32 reads pressure, flow, and leak sensors
+2. Sends data to Node.js server via HTTP POST
+3. Website fetches real-time data via HTTP GET
+4. Dashboard updates every 5 seconds
+
+### Quick Setup
+1. Install Node.js dependencies: `npm install`
+2. Start server: `npm start` (runs on port 5000)
+3. Upload `ESP32_CODE.ino` to your ESP32 board
+4. Dashboard automatically shows real sensor values!
+
+### Files
+- `server.js` - Node.js server for data relay
+- `ESP32_CODE.ino` - Arduino code for ESP32
+- `SETUP_GUIDE.md` - Complete integration guide
+- `package.json` - Node.js dependencies
+
+### Real Sensor Data
+- **Sensors Online** - Number of active water sensors
+- **Network Status** - Percentage of responding sensors
+- **Active Leaks** - Count of detected leaks
+- **Water Pressure** - Current pressure in bar
+
+📖 See `SETUP_GUIDE.md` for detailed integration instructions
+
 ## Support
 
 For issues or feature requests, contact:

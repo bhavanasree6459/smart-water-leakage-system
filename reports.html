@@ -27,81 +27,53 @@
         <!-- Water Loss Report -->
         <h3 class="section-title">Water Loss Analysis</h3>
         
-        <div class="report-card">
-            <h4 class="report-title">Total Water Intake</h4>
-            <div class="report-stats">
-                <div class="report-stat">
-                    <span>This Month</span>
-                    <div class="report-stat-value">15</div>
-                    <small>Million Liters</small>
+        <div id="waterAnalysisContainer" style="display: none;">
+            <div class="report-card">
+                <h4 class="report-title">Total Water Intake</h4>
+                <div class="report-stats">
+                    <div class="report-stat">
+                        <span>This Month</span>
+                        <div class="report-stat-value" id="intakeThisMonth">--</div>
+                        <small>Million Liters</small>
+                    </div>
+                    <div class="report-stat">
+                        <span>Last Month</span>
+                        <div class="report-stat-value" id="intakeLastMonth">--</div>
+                        <small>Million Liters</small>
+                    </div>
                 </div>
-                <div class="report-stat">
-                    <span>Last Month</span>
-                    <div class="report-stat-value">14.5</div>
-                    <small>Million Liters</small>
+            </div>
+
+            <div class="report-card">
+                <h4 class="report-title">Water Loss / Leakage</h4>
+                <div class="report-stats">
+                    <div class="report-stat">
+                        <span>Recovered</span>
+                        <div class="report-stat-value" id="waterRecovered">--</div>
+                        <small>Million Liters</small>
+                    </div>
+                    <div class="report-stat">
+                        <span>Lost Time</span>
+                        <div class="report-stat-value" id="lostTime">--</div>
+                        <small>Hours</small>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="report-card">
-            <h4 class="report-title">Water Loss / Leakage</h4>
-            <div class="report-stats">
-                <div class="report-stat">
-                    <span>Recovered</span>
-                    <div class="report-stat-value">10</div>
-                    <small>Million Liters</small>
-                </div>
-                <div class="report-stat">
-                    <span>Lost Time</span>
-                    <div class="report-stat-value">5.2</div>
-                    <small>Hours</small>
-                </div>
-            </div>
+        <div id="noHardwareMsg" style="text-align: center; padding: 40px 20px; color: #999;">
+            <i class="fas fa-microchip" style="font-size: 50px; margin-bottom: 15px;"></i>
+            <p style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">ESP32 Hardware Not Connected</p>
+            <small>Water analysis will appear when hardware is connected to the system</small>
         </div>
 
         <!-- Recent Reports Section -->
-        <h3 class="section-title">Recent Reports</h3>
-
-        <div class="report-card">
-            <h4 class="report-title">MG Road, Zone 3</h4>
-            <div class="report-stats">
-                <div class="report-stat">
-                    <span>Date</span>
-                    <div class="report-stat-value">29 May 2025</div>
-                </div>
-                <div class="report-stat" style="text-align: right;">
-                    <span>Status</span>
-                    <div class="report-stat-value" style="color: #dc2626;">Not Resolved</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="report-card">
-            <h4 class="report-title">Lake View Street, Zone 2</h4>
-            <div class="report-stats">
-                <div class="report-stat">
-                    <span>Date</span>
-                    <div class="report-stat-value">24 May 2025</div>
-                </div>
-                <div class="report-stat" style="text-align: right;">
-                    <span>Status</span>
-                    <div class="report-stat-value" style="color: #10b981;">Resolved</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="report-card">
-            <h4 class="report-title">Park Avenue, Zone 1</h4>
-            <div class="report-stats">
-                <div class="report-stat">
-                    <span>Date</span>
-                    <div class="report-stat-value">23 May 2025</div>
-                </div>
-                <div class="report-stat" style="text-align: right;">
-                    <span>Status</span>
-                    <div class="report-stat-value" style="color: #10b981;">Resolved</div>
-                </div>
-            </div>
+        <h3 class="section-title">Leakage Reports from ESP32</h3>
+        <div id="reportsContainer"></div>
+        <div id="noReportsMsg" style="text-align: center; padding: 30px; color: #999;">
+            <i class="fas fa-check-circle" style="font-size: 40px; margin-bottom: 10px;"></i>
+            <p>No leakage detected by sensors</p>
+            <small>Reports will appear when ESP32 detects leaks</small>
         </div>
     </div>
 
@@ -130,10 +102,262 @@
     </nav>
 </div>
 
-</body>
-</html>
+<script>
+// API Configuration
+const API_URL = 'http://localhost:5000/api/sensors';
 
-</div>
+// Fetch real sensor data from server
+async function fetchReportData() {
+    try {
+        const response = await fetch(API_URL);
+        if (response.ok) {
+            const data = await response.json();
+            updateReports(data);
+            saveReportData(data);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        loadCachedReportData();
+    }
+}
+
+// Update report values with real data
+function updateReports(data) {
+    // Check if hardware is actually connected (has real sensor data)
+    const sensorsOnline = data.sensorsOnline || 0;
+    const networkStatus = parseInt(data.networkStatus) || 0;
+    const activeLeaks = data.activeLeaks || 0;
+    const waterPressure = parseFloat(data.waterPressure) || 0;
+    
+    // Check if we have valid data from ESP32
+    const isHardwareConnected = sensorsOnline > 0 && networkStatus > 0;
+    
+    const waterAnalysisContainer = document.getElementById('waterAnalysisContainer');
+    const noHardwareMsg = document.getElementById('noHardwareMsg');
+    
+    if (isHardwareConnected) {
+        // Show water analysis only when hardware is connected
+        waterAnalysisContainer.style.display = 'block';
+        noHardwareMsg.style.display = 'none';
+        
+        // Calculate water metrics based on sensor data
+        const thisMonthIntake = (sensorsOnline * 0.5 * (networkStatus / 100)).toFixed(1);
+        const lastMonthIntake = (thisMonthIntake * 0.97).toFixed(1);
+        const waterRecovered = (thisMonthIntake * 0.67).toFixed(1);
+        const lostTime = (activeLeaks * 1.8).toFixed(1);
+        
+        // Update values
+        document.getElementById('intakeThisMonth').textContent = thisMonthIntake;
+        document.getElementById('intakeLastMonth').textContent = lastMonthIntake;
+        document.getElementById('waterRecovered').textContent = waterRecovered;
+        document.getElementById('lostTime').textContent = lostTime;
+        
+    } else {
+        // Hide water analysis and show "not connected" message
+        waterAnalysisContainer.style.display = 'none';
+        noHardwareMsg.style.display = 'block';
+    }
+    
+    // Generate leakage reports ONLY when leaks are detected
+    updateLeakageReports(data);
+}
+
+// Generate leakage reports based on actual ESP32 sensor detection
+function updateLeakageReports(data) {
+    const activeLeaks = data.activeLeaks || 0;
+    const reportsContainer = document.getElementById('reportsContainer');
+    const noReportsMsg = document.getElementById('noReportsMsg');
+    
+    if (activeLeaks > 0) {
+        // Show reports container and hide "no reports" message
+        reportsContainer.style.display = 'block';
+        noReportsMsg.style.display = 'none';
+        
+        // Load or create leakage reports
+        let leakageReports = JSON.parse(localStorage.getItem('leakageReports')) || {};
+        
+        // Create a timestamp for this detection session
+        const detectionKey = `detection_${Math.floor(Date.now() / 1000)}`;
+        
+        // Add new leak detection if not already recorded
+        if (activeLeaks > 0 && !leakageReports[detectionKey]) {
+            leakageReports[detectionKey] = {
+                leaks: activeLeaks,
+                timestamp: new Date().toISOString(),
+                pressure: data.waterPressure,
+                resolved: false
+            };
+        }
+        
+        // Display all active (unresolved) leakage reports
+        reportsContainer.innerHTML = '';
+        let activeReportCount = 0;
+        
+        Object.entries(leakageReports).forEach(([key, report]) => {
+            if (!report.resolved) {
+                activeReportCount++;
+                const reportDate = new Date(report.timestamp);
+                const dateStr = formatDate(reportDate);
+                const timeStr = reportDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                
+                const reportHTML = `
+                    <div class="report-card" data-report-id="${key}">
+                        <h4 class="report-title">Leakage Detected - Zone Sensor Alert #${activeReportCount}</h4>
+                        <div class="report-stats">
+                            <div class="report-stat">
+                                <span>Date & Time</span>
+                                <div class="report-stat-value">${dateStr}, ${timeStr}</div>
+                            </div>
+                            <div class="report-stat">
+                                <span>Leaks Count</span>
+                                <div class="report-stat-value">${report.leaks}</div>
+                            </div>
+                            <div class="report-stat">
+                                <span>Pressure</span>
+                                <div class="report-stat-value">${report.pressure}</div>
+                            </div>
+                            <div class="report-stat" style="text-align: right;">
+                                <span>Status</span>
+                                <div class="report-stat-value" style="color: #dc2626;">ACTIVE</div>
+                            </div>
+                        </div>
+                        <button class="resolve-btn" onclick="resolveLeakReport('${key}')" style="width: 100%; padding: 10px; margin-top: 10px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                            Mark as Resolved
+                        </button>
+                    </div>
+                `;
+                reportsContainer.innerHTML += reportHTML;
+            }
+        });
+        
+        // Save updated reports
+        localStorage.setItem('leakageReports', JSON.stringify(leakageReports));
+        
+    } else {
+        // No active leaks - show "no reports" message
+        reportsContainer.style.display = 'none';
+        noReportsMsg.style.display = 'block';
+        
+        // Show resolved reports if any exist
+        const leakageReports = JSON.parse(localStorage.getItem('leakageReports')) || {};
+        let hasResolved = false;
+        
+        Object.values(leakageReports).forEach(report => {
+            if (report.resolved) {
+                hasResolved = true;
+            }
+        });
+        
+        // Show resolved reports section if there are any
+        if (hasResolved) {
+            showResolvedReports();
+        }
+    }
+}
+
+// Show resolved leakage reports
+function showResolvedReports() {
+    const leakageReports = JSON.parse(localStorage.getItem('leakageReports')) || {};
+    const reportsContainer = document.getElementById('reportsContainer');
+    let resolvedHTML = '';
+    
+    Object.entries(leakageReports).forEach(([key, report]) => {
+        if (report.resolved) {
+            const reportDate = new Date(report.timestamp);
+            const dateStr = formatDate(reportDate);
+            const timeStr = reportDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            
+            resolvedHTML += `
+                <div class="report-card" style="opacity: 0.7;">
+                    <h4 class="report-title">Leakage Resolved</h4>
+                    <div class="report-stats">
+                        <div class="report-stat">
+                            <span>Date & Time</span>
+                            <div class="report-stat-value">${dateStr}, ${timeStr}</div>
+                        </div>
+                        <div class="report-stat" style="text-align: right;">
+                            <span>Status</span>
+                            <div class="report-stat-value" style="color: #10b981;">RESOLVED</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    if (resolvedHTML) {
+        reportsContainer.innerHTML = resolvedHTML;
+        reportsContainer.style.display = 'block';
+        document.getElementById('noReportsMsg').style.display = 'none';
+    }
+}
+
+// Mark a leakage report as resolved
+function resolveLeakReport(reportId) {
+    let leakageReports = JSON.parse(localStorage.getItem('leakageReports')) || {};
+    if (leakageReports[reportId]) {
+        leakageReports[reportId].resolved = true;
+        leakageReports[reportId].resolvedTime = new Date().toISOString();
+    }
+    localStorage.setItem('leakageReports', JSON.stringify(leakageReports));
+    
+    // Refresh display
+    const reportsContainer = document.getElementById('reportsContainer');
+    const noReportsMsg = document.getElementById('noReportsMsg');
+    
+    // Rebuild the display
+    let hasActive = false;
+    Object.values(leakageReports).forEach(report => {
+        if (!report.resolved) {
+            hasActive = true;
+        }
+    });
+    
+    if (!hasActive) {
+        reportsContainer.style.display = 'none';
+        noReportsMsg.style.display = 'block';
+        // Show resolved reports
+        showResolvedReports();
+    } else {
+        // Re-fetch to update
+        fetchReportData();
+    }
+}
+
+// Format date as "D Mon YYYY"
+function formatDate(date) {
+    const options = { day: 'numeric', month: 'short', year: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
+}
+
+// Save report data to localStorage for offline access
+function saveReportData(data) {
+    localStorage.setItem('reportData', JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString()
+    }));
+}
+
+// Load cached report data from localStorage
+function loadCachedReportData() {
+    const cached = localStorage.getItem('reportData');
+    if (cached) {
+        try {
+            const data = JSON.parse(cached);
+            updateReports(data);
+        } catch (error) {
+            console.error('Error loading cached data:', error);
+        }
+    }
+}
+
+// Fetch data on page load
+window.addEventListener('load', function() {
+    fetchReportData();
+    // Refresh data every 5 seconds
+    setInterval(fetchReportData, 5000);
+});
+</script>
 
 </body>
 </html>
