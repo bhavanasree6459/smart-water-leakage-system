@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leakage Alerts</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+<div class="mobile-container">
+    <!-- Header -->
+    <div class="mobile-header">
+        <div class="header-left">
+            <a href="dashboard.html" style="color: white; text-decoration: none; font-size: 20px; margin-right: 15px;">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <h2>Leakage Alerts</h2>
+        </div>
+        <div class="header-right">
+            <i class="fas fa-filter"></i>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="mobile-content">
+        <!-- Alert Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; padding: 0; border-bottom: 1px solid #eee;">
+            <button id="tabAll" class="alert-tab active" data-tab="all" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid #0F4C81; color: #0F4C81; font-weight: bold;">All (<span id="countAll">2</span>)</button>
+            <button id="tabActive" class="alert-tab" data-tab="active" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Active (<span id="countActive">2</span>)</button>
+            <button id="tabResolved" class="alert-tab" data-tab="resolved" style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #999;">Resolved (<span id="countResolved">2</span>)</button>
+        </div>
+
+        <!-- Alert Items List -->
+        <div class="alert-list" id="alertsList">
+            <div class="alert-item" data-status="active">
+                <div class="alert-item-info">
+                    <h4>MG Road, Zone 3</h4>
+                    <p>PIPE-34A • 09:41 AM</p>
+                </div>
+                <div class="alert-severity severity-high">
+                    <i class="fas fa-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="alert-item" data-status="active">
+                <div class="alert-item-info">
+                    <h4>Lake View Street, Zone 2</h4>
+                    <p>PIPE-188 • 08:15 AM</p>
+                </div>
+                <div class="alert-severity severity-medium">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+
+            <div class="alert-item" data-status="resolved">
+                <div class="alert-item-info">
+                    <h4>Park Avenue, Zone 1</h4>
+                    <p>PIPE-OPC • 23 May 2025</p>
+                </div>
+                <div class="alert-severity severity-low">
+                    <i class="fas fa-check"></i>
+                </div>
+            </div>
+
+            <div class="alert-item" data-status="resolved">
+                <div class="alert-item-info">
+                    <h4>Old Bridge Area, Zone 4</h4>
+                    <p>PIPE-220 • 23 May 2025</p>
+                </div>
+                <div class="alert-severity severity-low">
+                    <i class="fas fa-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav">
+        <a href="dashboard.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="monitoring.html" class="nav-item">
+            <i class="fas fa-map"></i>
+            <span>Map</span>
+        </a>
+        <a href="alerts.html" class="nav-item active">
+            <i class="fas fa-bell"></i>
+            <span>Alerts</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+            <i class="fas fa-chart-bar"></i>
+            <span>Reports</span>
+        </a>
+        <a href="settings.html" class="nav-item">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+    </nav>
+</div>
+
+<script>
+// Tab functionality
+const tabs = document.querySelectorAll('.alert-tab');
+const alertsList = document.getElementById('alertsList');
+const alertItems = alertsList.querySelectorAll('.alert-item');
+
+// Count alerts by status
+function updateCounts() {
+    let activeCount = 0;
+    let resolvedCount = 0;
+    
+    alertItems.forEach(item => {
+        if (item.dataset.status === 'active') {
+            activeCount++;
+        } else if (item.dataset.status === 'resolved') {
+            resolvedCount++;
+        }
+    });
+    
+    document.getElementById('countAll').textContent = alertItems.length;
+    document.getElementById('countActive').textContent = activeCount;
+    document.getElementById('countResolved').textContent = resolvedCount;
+}
+
+// Filter alerts based on selected tab
+function filterAlerts(tabName) {
+    alertItems.forEach(item => {
+        if (tabName === 'all') {
+            item.style.display = 'flex';
+        } else if (tabName === item.dataset.status) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Handle tab clicks
+tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+        // Remove active class from all tabs
+        tabs.forEach(t => {
+            t.style.borderBottomColor = 'transparent';
+            t.style.color = '#999';
+            t.style.fontWeight = 'normal';
+        });
+        
+        // Add active class to clicked tab
+        this.style.borderBottomColor = '#0F4C81';
+        this.style.color = '#0F4C81';
+        this.style.fontWeight = 'bold';
+        
+        // Filter alerts
+        const tabName = this.dataset.tab;
+        filterAlerts(tabName);
+    });
+});
+
+// Initialize counts
+updateCounts();
+</script>
+
+</body>
+</html>

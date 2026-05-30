@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Network Map</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+<div class="mobile-container">
+    <!-- Header -->
+    <div class="mobile-header">
+        <div class="header-left">
+            <a href="dashboard.html" style="color: white; text-decoration: none; font-size: 20px; margin-right: 15px;">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <h2>Live Network Map</h2>
+        </div>
+        <div class="header-right">
+            <i class="fas fa-filter"></i>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="mobile-content">
+        <!-- Add Location Form -->
+        <div style="background: white; padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #e0e0e0;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #333;">
+                <i class="fas fa-plus-circle"></i> Add New Location/Zone
+            </h4>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="newLocationName" placeholder="e.g., Anakapalli, Pendurthi..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                <button id="addLocationBtn" style="background: #0F4C81; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Box -->
+        <div style="position: relative; margin-bottom: 20px;">
+            <input type="text" id="locationSearch" class="search-box" placeholder="Search location...">
+            <button id="searchBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #0F4C81; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container" id="mapContainer">
+            <div id="mapContent" style="text-align: center; width: 100%;">
+                <i class="fas fa-map" style="font-size: 40px; opacity: 0.5;"></i>
+                <p style="margin-top: 10px;">Enter a location or address to view on map</p>
+            </div>
+        </div>
+
+        <!-- Zone Overview -->
+        <h3 class="section-title">All Monitored Locations</h3>
+        <div id="zonesList">
+            <div class="zone-item">
+                <div class="zone-info">
+                    <h4>Central Zone</h4>
+                    <p>12 sensors online</p>
+                </div>
+                <div class="zone-status normal"></div>
+            </div>
+
+            <div class="zone-item">
+                <div class="zone-info">
+                    <h4>North Zone</h4>
+                    <p>8 sensors online</p>
+                </div>
+                <div class="zone-status normal"></div>
+            </div>
+
+            <div class="zone-item">
+                <div class="zone-info">
+                    <h4>West Zone</h4>
+                    <p>2 sensors (Leak detected)</p>
+                </div>
+                <div class="zone-status critical"></div>
+            </div>
+
+            <div class="zone-item">
+                <div class="zone-info">
+                    <h4>East Zone</h4>
+                    <p>6 sensors (Low pressure)</p>
+                </div>
+                <div class="zone-status warning"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav">
+        <a href="dashboard.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="monitoring.html" class="nav-item active">
+            <i class="fas fa-map"></i>
+            <span>Map</span>
+        </a>
+        <a href="alerts.html" class="nav-item">
+            <i class="fas fa-bell"></i>
+            <span>Alerts</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+            <i class="fas fa-chart-bar"></i>
+            <span>Reports</span>
+        </a>
+        <a href="settings.html" class="nav-item">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+    </nav>
+</div>
+
+<script>
+// Default locations
+let allLocations = {
+    'central zone': { name: 'Central Zone', sensors: 12, status: 'Normal' },
+    'north zone': { name: 'North Zone', sensors: 8, status: 'Normal' },
+    'west zone': { name: 'West Zone', sensors: 2, status: 'Leak Detected' },
+    'east zone': { name: 'East Zone', sensors: 6, status: 'Low Pressure' },
+    'mg road': { name: 'MG Road', sensors: 3, status: 'Leak Detected' },
+    'lake view street': { name: 'Lake View Street', sensors: 4, status: 'Low Pressure' },
+    'park avenue': { name: 'Park Avenue', sensors: 5, status: 'Normal' },
+    'old bridge': { name: 'Old Bridge Area', sensors: 2, status: 'Normal' }
+};
+
+// Load custom locations from localStorage
+function loadCustomLocations() {
+    const saved = localStorage.getItem('waterSystemLocations');
+    if (saved) {
+        const customLocations = JSON.parse(saved);
+        allLocations = { ...allLocations, ...customLocations };
+    }
+}
+
+// Save custom locations to localStorage
+function saveCustomLocations() {
+    const customLocations = {};
+    for (let key in allLocations) {
+        if (key !== 'central zone' && key !== 'north zone' && key !== 'west zone' && 
+            key !== 'east zone' && key !== 'mg road' && key !== 'lake view street' && 
+            key !== 'park avenue' && key !== 'old bridge') {
+            customLocations[key] = allLocations[key];
+        }
+    }
+    localStorage.setItem('waterSystemLocations', JSON.stringify(customLocations));
+}
+
+// Add new location
+document.getElementById('addLocationBtn').addEventListener('click', addLocation);
+document.getElementById('newLocationName').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        addLocation();
+    }
+});
+
+function addLocation() {
+    const input = document.getElementById('newLocationName');
+    const locationName = input.value.trim();
+    
+    if (locationName === '') {
+        alert('Please enter a location/address name');
+        return;
+    }
+    
+    const locationKey = locationName.toLowerCase();
+    
+    if (locationKey in allLocations) {
+        alert('This location already exists!');
+        return;
+    }
+    
+    // Add new location with random sensor count
+    const randomSensors = Math.floor(Math.random() * 12) + 2;
+    const statuses = ['Normal', 'Low Pressure', 'Leak Detected'];
+    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    
+    allLocations[locationKey] = {
+        name: locationName,
+        sensors: randomSensors,
+        status: randomStatus
+    };
+    
+    saveCustomLocations();
+    input.value = '';
+    
+    // Add to zones list
+    updateZonesList();
+    
+    // Auto-search the new location
+    document.getElementById('locationSearch').value = locationName;
+    searchLocation();
+}
+
+// Search location
+document.getElementById('searchBtn').addEventListener('click', searchLocation);
+document.getElementById('locationSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchLocation();
+    }
+});
+
+function searchLocation() {
+    const searchQuery = document.getElementById('locationSearch').value.toLowerCase().trim();
+    const mapContent = document.getElementById('mapContent');
+    
+    if (searchQuery === '') {
+        mapContent.innerHTML = `
+            <i class="fas fa-map" style="font-size: 40px; opacity: 0.5;"></i>
+            <p style="margin-top: 10px;">Enter a location or address to view on map</p>
+        `;
+        return;
+    }
+    
+    // Search in locations
+    let foundLocation = null;
+    let foundLocationName = null;
+    
+    for (let key in allLocations) {
+        if (key.includes(searchQuery) || searchQuery.includes(key) || key === searchQuery) {
+            foundLocation = allLocations[key];
+            foundLocationName = key;
+            break;
+        }
+    }
+    
+    if (foundLocation) {
+        let statusColor = 'normal';
+        let statusIcon = '✓';
+        
+        if (foundLocation.status.includes('Leak')) {
+            statusColor = 'critical';
+            statusIcon = '⚠';
+        } else if (foundLocation.status.includes('Low')) {
+            statusColor = 'warning';
+            statusIcon = '!';
+        }
+        
+        mapContent.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <i class="fas fa-map-pin" style="font-size: 50px; color: #0F4C81; margin-bottom: 15px;"></i>
+                <h3 style="margin: 10px 0; color: #333;">${foundLocation.name}</h3>
+                <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+                    <div>
+                        <p style="margin: 0; color: #666; font-size: 12px;">Sensors Online</p>
+                        <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: bold; color: #0F4C81;">${foundLocation.sensors}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: #666; font-size: 12px;">Status</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold; color: ${statusColor === 'critical' ? '#dc2626' : statusColor === 'warning' ? '#f59e0b' : '#10b981'};">
+                            <span style="font-size: 18px;">${statusIcon}</span> ${foundLocation.status}
+                        </p>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 10px; border-left: 4px solid #0F4C81;">
+                    <p style="margin: 0; font-size: 12px; color: #333;">
+                        <i class="fas fa-info-circle"></i> Showing live sensor data for this location
+                    </p>
+                </div>
+            </div>
+        `;
+    } else {
+        mapContent.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <i class="fas fa-search" style="font-size: 40px; opacity: 0.3; margin-bottom: 15px;"></i>
+                <p style="color: #999; margin-top: 10px;">Location not found</p>
+                <p style="color: #ccc; font-size: 12px; margin-top: 5px;">Add it using the form above to start monitoring!</p>
+            </div>
+        `;
+    }
+}
+
+// Update zones list display
+function updateZonesList() {
+    const zonesList = document.getElementById('zonesList');
+    zonesList.innerHTML = '';
+    
+    for (let key in allLocations) {
+        const location = allLocations[key];
+        let statusClass = 'normal';
+        
+        if (location.status.includes('Leak')) {
+            statusClass = 'critical';
+        } else if (location.status.includes('Low')) {
+            statusClass = 'warning';
+        }
+        
+        const zoneHTML = `
+            <div class="zone-item">
+                <div class="zone-info">
+                    <h4>${location.name}</h4>
+                    <p>${location.sensors} sensors online</p>
+                </div>
+                <div class="zone-status ${statusClass}"></div>
+            </div>
+        `;
+        
+        zonesList.innerHTML += zoneHTML;
+    }
+}
+
+// Initialize
+loadCustomLocations();
+updateZonesList();
+</script>
+
+</body>
+</html>
+
+    <!-- CHART -->
+    <div class="dashboard-card" style="margin-top:20px;">
+        <h3>Live Sensor Data</h3>
+        <canvas id="monitorChart"></canvas>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+window.addEventListener("load", function () {
+    const ctx = document.getElementById("monitorChart");
+
+    new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: ["10AM", "11AM", "12PM", "1PM", "2PM"],
+            datasets: [{
+                label: "Water Flow",
+                data: [10, 12, 8, 15, 11],
+                borderColor: "blue",
+                fill: false
+            }]
+        }
+    });
+});
+</script>
+
+</body>
+</html>
